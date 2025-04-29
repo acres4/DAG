@@ -43,33 +43,46 @@ with DAG(
 
     @task.virtualenv(
         task_id="run_dbt",
-        requirements=["dbt-core", "dbt-singlestore"],
+        requirements=["dbt-core", "dbt-singlestore", "requests"],
         system_site_packages=False,
         multiple_outputs=False,
     )
     def run_dbt(conn_env):
         import subprocess
         import os
+        import requests
+        import tempfile
+        from zipfile import ZipFile
+        from io import BytesIO
+        import sys
 
-        # Directly use the git-sync'd directory
-        dbt_project_dir = "/opt/airflow/dags/repo/dbt"
+        # Download and extract repo as ZIP
+            zip_url = "https://github.com/acres4/DAG/archive/refs/heads/main.zip"
+            response = requests.get(zip_url)
+            response.raise_for_status()
+            
+            with ZipFile(BytesIO(response.content)) as zipfile:
+                zipfile.extractall(tmpdirname)
 
-        env = os.environ.copy()
-        env.update(conn_env)
+            # Adjust this path to point at your extracted DBT folder
+            repo_root_dir = os.path.join(tmpdirname, os.listdir(tmpdirname)[0])
+            dbt_project_dir = os.path.join(repo_root_dir, "dbt")
 
-        # Run dbt directly on git-sync'd directory
-        result = subprocess.run(
-            ["dbt", "run", "--profiles-dir", dbt_project_dir, "--project-dir", dbt_project_dir],
-            env=env,
-            capture_output=True,
-            text=True
-        )
+            env = os.environ.copy()
+            env.update(conn_env)
 
-        if result.returncode != 0:
-            raise Exception(f"dbt run failed: {result.stderr}")
+            # Execute dbt explicitly as Python module
+            result = subprocess.run(
+                [sys.executable, "-m", "dbt", "run", "--profiles-dir", dbt_project_dir, "--project-dir", dbt_project_dir],
+                env=env,
+                capture_output=True,
+                text=True
+            )
 
-        print(result.stdout)
-        return result.stdout
+            if result.returncode != 0:
+                raise Exception(f"dbt run failed: {result.stderr}")
 
+            print(result.stdout)
+            return result.stdout
     connections = fetch_singlestore_conns()
     run_dbt.expand(conn_env=connections)
