@@ -58,7 +58,7 @@ with DAG(
         task_id="run_dbt",
         namespace="airflow",
         name="dbt-run",
-        image="localhost:32000/dbt@sha256:65facafd99cadefa34b9e4bee82c17f9d6c123bbcb9509ddc9ab68781dfab188 ",
+        image="localhost:32000/dbt@sha256:1a0b9bf4336384097d187a0afca250b7258dcbdd3b6831555aabcdfca725ac1d ",
         cmds=["dbt", "run", "--profiles-dir", "/opt/dbt", "--project-dir", "/opt/dbt"],
         env_vars={},          # will be populated dynamically for each connection
         get_logs=True         # stream logs of the dbt run
