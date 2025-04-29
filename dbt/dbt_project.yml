@@ -1,0 +1,7 @@
+name: my_dbt_project           
+version: '2.0'                 
+
+profile: singlestore_dbt         
+
+config-version: 2              
+
