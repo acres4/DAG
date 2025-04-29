@@ -1,8 +1,7 @@
 from airflow import DAG
 from airflow.utils.dates import days_ago
+from airflow.decorators import task
 from airflow.operators.python import PythonOperator
-from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
-from airflow.utils.task_group import TaskGroup
 from airflow.utils.context import XComArg
 from airflow import settings
 from airflow.models import Connection
@@ -13,56 +12,58 @@ default_args = {
     "owner": "airflow",
     "retries": 0
 }
+
 with DAG(
-    "singlestore_dbt_rollups",
+    "singlestore_dbt_rollups_virtualenv",
     default_args=default_args,
-    start_date=days_ago(1),  # or a specific date
-    schedule_interval=None,  # run on demand or set a cron schedule
+    start_date=days_ago(1),
+    schedule_interval=None,
     catchup=False
 ) as dag:
 
     def get_singlestore_conns():
         """Fetch SingleStore connection details from Airflow Connections."""
         session = settings.Session()
-        # Query all connections with id starting with 'singlestore_'
         singlestore_conns = session.query(Connection).filter(
             Connection.conn_id.ilike("singlestore_%")
         ).all()
         result = []
         for conn in singlestore_conns:
-            # Each item will be a dict of env vars for that connection
             conn_env = {
                 "SINGLESTORE_HOST": conn.host or "",
                 "SINGLESTORE_PORT": str(conn.port or 3306),
                 "SINGLESTORE_USER": conn.login or "",
                 "SINGLESTORE_PASSWORD": conn.password or "",
-                # Use Airflow's conn.schema as the database name if provided
                 "SINGLESTORE_DB": conn.schema or "",
-                # If schema not provided, use database from extras or same as DB
                 "SINGLESTORE_SCHEMA": conn.schema or conn.extra_dejson.get("schema", "") or conn.schema or ""
             }
-            # If conn.schema was empty, Airflow might store the "Database" field in .schema.
-            # Adjust as needed if using extra fields for database name.
             result.append(conn_env)
         return result
 
-    # Task 1: Get all SingleStore connections
     fetch_connections = PythonOperator(
         task_id="fetch_connections",
         python_callable=get_singlestore_conns
     )
 
-    # Task 2: Run dbt for each connection (dynamically mapped)
-    run_dbt = KubernetesPodOperator.partial(
+    @task.virtualenv(
         task_id="run_dbt",
-        namespace="airflow",
-        name="dbt-run",
-        image="localhost:32000/my-dbt-image:latest",  # use your dbt image (update if using different registry)
-        cmds=["dbt", "run", "--profiles-dir", "/opt/dbt", "--project-dir", "/opt/dbt"],
-        env_vars={},          # will be populated dynamically for each connection
-        get_logs=True         # stream logs of the dbt run
-    ).expand(env_vars=XComArg(fetch_connections))
-    # This will create one `run_dbt` mapped task for each entry in the list returned by fetch_connections.
-    
-    # Set task dependencies
-    fetch_connections >> run_dbt
+        requirements=["dbt-core", "dbt-singlestore", "requests"],
+        system_site_packages=False,
+        multiple_outputs=True
+    )
+    def run_dbt(conn_env):
+        import os
+        from dbt.cli.main import dbtRunner, dbtRunnerResult
+
+        os.environ.update(conn_env)
+
+        runner = dbtRunner()
+        cli_args = ["run", "--profiles-dir", "/opt/dbt", "--project-dir", "/opt/dbt"]
+        result: dbtRunnerResult = runner.invoke(cli_args)
+
+        if result.success:
+            return {"status": "success", "details": result.result}
+        else:
+            raise Exception("dbt run failed")
+
+    run_dbt.expand(conn_env=XComArg(fetch_connections))
