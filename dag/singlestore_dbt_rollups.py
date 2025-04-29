@@ -57,6 +57,7 @@ with DAG(
         import sys
 
         # Download and extract repo as ZIP
+        with tempfile.TemporaryDirectory() as tmpdirname:
             zip_url = "https://github.com/acres4/DAG/archive/refs/heads/main.zip"
             response = requests.get(zip_url)
             response.raise_for_status()
