@@ -43,39 +43,33 @@ with DAG(
 
     @task.virtualenv(
         task_id="run_dbt",
-        requirements=["dbt-core", "dbt-singlestore", "gitpython"],
+        requirements=["dbt-core", "dbt-singlestore"],
         system_site_packages=False,
         multiple_outputs=False,
     )
     def run_dbt(conn_env):
         import subprocess
         import os
-        from git import Repo
-        import tempfile
 
-        # Clone your complete DAG & DBT repo
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            print(f"Cloning repo to {tmpdirname}")
-            Repo.clone_from(GIT_REPO_URL, tmpdirname, branch=GIT_BRANCH)
+        # Directly use the git-sync'd directory
+        dbt_project_dir = "/opt/airflow/dags/repo/dbt"
 
-            dbt_project_dir = os.path.join(tmpdirname, "dbt")
+        env = os.environ.copy()
+        env.update(conn_env)
 
-            env = os.environ.copy()
-            env.update(conn_env)
+        # Run dbt directly on git-sync'd directory
+        result = subprocess.run(
+            ["dbt", "run", "--profiles-dir", dbt_project_dir, "--project-dir", dbt_project_dir],
+            env=env,
+            capture_output=True,
+            text=True
+        )
 
-            # Run dbt command against the cloned dbt directory
-            result = subprocess.run(
-                ["dbt", "run", "--profiles-dir", dbt_project_dir, "--project-dir", dbt_project_dir],
-                env=env,
-                capture_output=True,
-                text=True
-            )
+        if result.returncode != 0:
+            raise Exception(f"dbt run failed: {result.stderr}")
 
-            if result.returncode != 0:
-                raise Exception(f"dbt run failed: {result.stderr}")
-
-            print(result.stdout)
-            return result.stdout
+        print(result.stdout)
+        return result.stdout
 
     connections = fetch_singlestore_conns()
     run_dbt.expand(conn_env=connections)
