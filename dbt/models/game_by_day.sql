@@ -53,7 +53,8 @@ WITH source AS (
       END
     )                                       AS unique_player_card_numbers
 
-  FROM {{ source('wcdev_events','session_data') }}
+  FROM {{ env_var('SINGLESTORE_DB') }}.session_data
+
 
   WHERE type = 'STUpdate'
 
