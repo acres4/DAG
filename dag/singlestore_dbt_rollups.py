@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.decorators import task
 from airflow.operators.python import PythonOperator
-from airflow.utils.context import XComArg
+from airflow.models.xcom_arg import XComArg
 from airflow import settings
 from airflow.models import Connection
 import os
