@@ -1,7 +1,10 @@
 name: my_dbt_project           
 version: '2.0'                 
 
-profile: singlestore_dbt         
+models:
+  singlestore_dbt:
+    +materialized: table
+    +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
 
-config-version: 2              
+
 
