@@ -57,7 +57,7 @@ with DAG(
         task_id="run_dbt",
         namespace="airflow",
         name="dbt-run",
-        image="localhost:32000/my-dbt-image:latest",  # use your dbt image (update if using different registry)
+        image="cr.k8s.dev.acres.red/dbt-image:latest",  # use your dbt image (update if using different registry)
         cmds=["dbt", "run", "--profiles-dir", "/opt/dbt", "--project-dir", "/opt/dbt"],
         env_vars={},          # will be populated dynamically for each connection
         get_logs=True         # stream logs of the dbt run
