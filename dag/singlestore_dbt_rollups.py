@@ -21,7 +21,7 @@ with DAG(
     catchup=False
 ) as dag:
 
-    @task
+
     def get_singlestore_conns():
         """Fetch SingleStore connection details from Airflow Connections."""
         session = settings.Session()
