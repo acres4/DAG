@@ -52,22 +52,16 @@ with DAG(
 
     @task
     def run_dbt(conn_env: dict):
-        """
-        Run `dbt run` under the given environment dict.
-        Assumes the Airflow worker image already has:
-          - dbt-core + dbt-singlestore installed
-          - your dbt project & profiles baked in under /opt/dbt
-        """
-        # Merge SingleStore creds into the OS env
         env = os.environ.copy()
         env.update(conn_env)
-
-        # Execute dbt in the same container as the Airflow worker
-        subprocess.run(
-            ["dbt", "run", "--profiles-dir", "/opt/airflow/dags/repo/dbt", "--project-dir", "/opt/airflow/dags/repo/dbt"],
-            check=True,
-            env=env,
-        )
+        try:
+            subprocess.run(
+                ["dbt", "run", "--profiles-dir", "/opt/airflow/dags/repo/dbt", "--project-dir", "/opt/airflow/dags/repo/dbt"],
+                check=True,
+                env=env,
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"dbt run failed for {conn_env}: {e}")
 
     # Wire up the dynamic mapping:
     # conns = get_singlestore_conns()
