@@ -1,9 +1,12 @@
 from airflow import DAG, settings
 from airflow.models import Connection
-from airflow.operators.python import PythonOperator, PythonVirtualenvOperator
+from airflow.operators.python import (
+    PythonOperator,
+    PythonVirtualenvOperator,                           
+)
 from airflow.utils.dates import days_ago
 from airflow.utils.task_group import TaskGroup
-from airflow.utils.context import XComArg
+from airflow.models.xcom_arg import XComArg   
 import subprocess, os, json, textwrap
 
 default_args = {"owner": "airflow", "retries": 0}
