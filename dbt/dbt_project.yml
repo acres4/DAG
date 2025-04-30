@@ -3,8 +3,9 @@ version: '2.0'
 
 models:
   singlestore_dbt:
-    +materialized: table
-    +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
+    schema: 'qa2_events'    
+    # +materialized: table
+    # +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
 
 
 
