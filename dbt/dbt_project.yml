@@ -2,29 +2,20 @@ name: "my_dbt_project"
 version: "1.0"
 config-version: 2
 
-# Which profile to use from profiles.yml
-profile: "singlestore_dynamic"
+# Must match the top-level key in profiles.yml
+profile: "singlestore_dbt"
 
-# Where dbt looks for your models
+# Where dbt looks for your .sql models
 source-paths: ["models"]
-# (optional) add other paths if you have macros, tests, etc.
 
 # Where dbt writes compiled files & artifacts
 target-path: "target"
 clean-targets:
   - "target"
 
+# Default materialization + (optional) schema override
 models:
-  my_dbt_project:        # this matches the top‐level name
+  my_dbt_project:
     +materialized: table
-    +schema: "{{ env_var('SINGLESTORE_SCHEMA') }}"
-# name: my_dbt_project           
-# version: '2.0'                 
-
-# models:
-#   singlestore_dbt:
-#     +materialized: table
-#     +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
-
-
-
+    # You *can* override schema here, but it’s usually better to let the profile control it:
+    # +schema: "{{ env_var('SINGLESTORE_SCHEMA') }}"
