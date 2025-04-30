@@ -18,37 +18,37 @@ with DAG(
     catchup=False,
 ) as dag:
 
-    @task
-    def get_singlestore_conns():
-        """
-        Query Airflow Connections for any conn_id starting with 'singlestore_'
-        and build a list of env-var dicts for each.
-        """
-        from airflow import settings
-        from airflow.models import Connection
+    # @task
+    # def get_singlestore_conns():
+    #     """
+    #     Query Airflow Connections for any conn_id starting with 'singlestore_'
+    #     and build a list of env-var dicts for each.
+    #     """
+    #     from airflow import settings
+    #     from airflow.models import Connection
 
-        session = settings.Session()
-        conns = (
-            session.query(Connection)
-            .filter(Connection.conn_id.ilike("singlestore_%"))
-            .all()
-        )
+    #     session = settings.Session()
+    #     conns = (
+    #         session.query(Connection)
+    #         .filter(Connection.conn_id.ilike("singlestore_%"))
+    #         .all()
+    #     )
 
-        results = []
-        for conn in conns:
-            results.append({
-                "SINGLESTORE_HOST":     conn.host or "10.49.18.95",
-                "SINGLESTORE_PORT":     str(conn.port or 3306),
-                "SINGLESTORE_USER":     conn.login or "root",
-                "SINGLESTORE_PASSWORD": conn.password or "Acres1234",
-                "SINGLESTORE_DB": conn.schema or "qa2_events",
-                "SINGLESTORE_SCHEMA": (
-                    conn.schema
-                    or conn.extra_dejson.get("schema", "qa2_events")
-                    or ""
-                ),
-            })
-        return results
+    #     results = []
+    #     for conn in conns:
+    #         results.append({
+    #             "SINGLESTORE_HOST":     conn.host or "10.49.18.95",
+    #             "SINGLESTORE_PORT":     str(conn.port or 3306),
+    #             "SINGLESTORE_USER":     conn.login or "root",
+    #             "SINGLESTORE_PASSWORD": conn.password or "Acres1234",
+    #             "SINGLESTORE_DB": conn.schema or "qa2_events",
+    #             "SINGLESTORE_SCHEMA": (
+    #                 conn.schema
+    #                 or conn.extra_dejson.get("schema", "qa2_events")
+    #                 or ""
+    #             ),
+    #         })
+    #     return results
 
     @task
     def run_dbt(conn_env: dict):
@@ -64,13 +64,25 @@ with DAG(
 
         # Execute dbt in the same container as the Airflow worker
         subprocess.run(
-            ["dbt", "run", "--profiles-dir", "/opt/dbt", "--project-dir", "/opt/dbt"],
+            ["dbt", "run", "--profiles-dir", "/opt/airflow/dags/repo/dbt", "--project-dir", "/opt/airflow/dags/repo/dbt"],
             check=True,
             env=env,
         )
 
     # Wire up the dynamic mapping:
-    conns = get_singlestore_conns()
+    # conns = get_singlestore_conns()
+    # debug hardwire of conns
+    conns = [
+        {
+            "SINGLESTORE_HOST": "10.49.18.95",
+            "SINGLESTORE_PORT": "3306",
+            "SINGLESTORE_USER": "root",
+            "SINGLESTORE_PASSWORD": "Acres1234",
+            "SINGLESTORE_DB": "qa2_events",
+            "SINGLESTORE_SCHEMA": "qa2_events",
+        }
+    ]
+    
     run_dbt.expand(conn_env=conns)
 
 # from airflow import DAG
