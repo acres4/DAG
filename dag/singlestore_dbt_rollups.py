@@ -37,14 +37,14 @@ with DAG(
         results = []
         for conn in conns:
             results.append({
-                "SINGLESTORE_HOST": conn.host or "",
-                "SINGLESTORE_PORT": str(conn.port or 3306),
-                "SINGLESTORE_USER": conn.login or "",
-                "SINGLESTORE_PASSWORD": conn.password or "",
-                "SINGLESTORE_DB": conn.schema or "",
+                "SINGLESTORE_HOST":     conn.host or "10.49.18.95",
+                "SINGLESTORE_PORT":     str(conn.port or 3306),
+                "SINGLESTORE_USER":     conn.login or "root",
+                "SINGLESTORE_PASSWORD": conn.password or "Acres1234",
+                "SINGLESTORE_DB": conn.schema or "qa2_events",
                 "SINGLESTORE_SCHEMA": (
                     conn.schema
-                    or conn.extra_dejson.get("schema", "")
+                    or conn.extra_dejson.get("schema", "qa2_events")
                     or ""
                 ),
             })
