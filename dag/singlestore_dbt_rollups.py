@@ -74,7 +74,7 @@ with DAG(
             ],
             check=True,
             env=env,
-            cwd="/opt/airflow/dags/dbt",
+            cwd="/opt/airflow/dags/repo/dbt",
         )
 
     # Wire up the dynamic mapping
