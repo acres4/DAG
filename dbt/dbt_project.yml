@@ -1,10 +1,30 @@
-name: my_dbt_project           
-version: '2.0'                 
+name: "my_dbt_project"
+version: "1.0"
+config-version: 2
+
+# Which profile to use from profiles.yml
+profile: "singlestore_dynamic"
+
+# Where dbt looks for your models
+source-paths: ["models"]
+# (optional) add other paths if you have macros, tests, etc.
+
+# Where dbt writes compiled files & artifacts
+target-path: "target"
+clean-targets:
+  - "target"
 
 models:
-  singlestore_dbt:
+  my_dbt_project:        # this matches the top‐level name
     +materialized: table
-    +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
+    +schema: "{{ env_var('SINGLESTORE_SCHEMA') }}"
+# name: my_dbt_project           
+# version: '2.0'                 
+
+# models:
+#   singlestore_dbt:
+#     +materialized: table
+#     +schema: '{{ env_var("SINGLESTORE_SCHEMA") }}'    
 
 
 
