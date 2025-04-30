@@ -3,48 +3,9 @@ from airflow.utils.dates import days_ago
 from airflow.decorators import task
 import subprocess
 import os
-
-def write_dbt_files(dbt_dir: str):
-    """
-    Generate dbt_project.yml and profiles.yml in the given directory.
-    """
-    project_yaml = f"""
-name: "my_dbt_project"
-version: "1.0"
-config-version: 2
-
-profile: "singlestore_dbt"
-
-source-paths: ["models"]
-target-path: "target"
-clean-targets:
-  - "target"
-
 models:
-  my_dbt_project:
-    +materialized: table
-"""
-    profiles_yaml = f"""
-singlestore_dbt:
-  target: dynamic
-  outputs:
-    dynamic:
-      type: singlestore
-      threads: 4
-      host:     "{{{{ env_var('SINGLESTORE_HOST') }}}}"
-      port:     {{{{ env_var('SINGLESTORE_PORT', 3306) }}}}
-      user:     "{{{{ env_var('SINGLESTORE_USER') }}}}"
-      password: "{{{{ env_var('SINGLESTORE_PASSWORD') }}}}"
-      database: "{{{{ env_var('SINGLESTORE_DB') }}}}"
-      schema:   "{{{{ env_var('SINGLESTORE_SCHEMA', env_var('SINGLESTORE_DB')) }}}}"
-"""
-    # ensure directory exists
-    os.makedirs(dbt_dir, exist_ok=True)
-    # write files
-    with open(os.path.join(dbt_dir, 'dbt_project.yml'), 'w') as f:
-        f.write(project_yaml)
-    with open(os.path.join(dbt_dir, 'profiles.yml'), 'w') as f:
-        f.write(profiles_yaml)
+import tempfile
+import shutil
 
 # Default DAG arguments
 default_args = {
@@ -93,36 +54,83 @@ with DAG(
     @task
     def run_dbt(conn_env: dict):
         """
-        Generate dbt config files and run the 'game_by_day' model using CLI.
+        Generate dbt config files in a temporary directory, copy models,
+        and run the 'game_by_day' model using dbt CLI.
         """
-        # paths
-        dbt_dir = "/opt/airflow/dags/repo/dbt"
-        # write yaml configs
-        write_dbt_files(dbt_dir)
+        # create a temporary working directory
+        work_dir = tempfile.mkdtemp(prefix="dbt_")
+        try:
+            # copy models into work_dir/models
+            src_models = "/opt/airflow/dags/repo/dbt/models"
+            dst_models = os.path.join(work_dir, "models")
+            shutil.copytree(src_models, dst_models)
 
-        # prepare env
-        env = os.environ.copy()
-        env.update({
-            "DBT_PROJECT_DIR":  dbt_dir,
-            "DBT_PROFILES_DIR": dbt_dir,
-            **conn_env,
-        })
-        # run dbt
-        subprocess.run(
-            [
-                "dbt", "run",
-                "--project-dir", dbt_dir,
-                "--profiles-dir", dbt_dir,
-                "--select", "game_by_day",
-            ],
-            check=True,
-            env=env,
-            cwd=dbt_dir,
-        )
+            # write dbt_project.yml
+            project_text = """
+name: "my_dbt_project"
+version: "1.0"
+config-version: 2
+
+profile: "singlestore_dbt"
+
+source-paths: ["models"]
+target-path: "target"
+clean-targets:
+  - "target"
+
+models:
+  my_dbt_project:
+    +materialized: table
+"""
+            with open(os.path.join(work_dir, 'dbt_project.yml'), 'w') as f:
+                f.write(project_text)
+
+            # write profiles.yml
+            profiles_text = """
+singlestore_dbt:
+  target: dynamic
+  outputs:
+    dynamic:
+      type: singlestore
+      threads: 4
+      host:     "{{{{ env_var('SINGLESTORE_HOST') }}}}"
+      port:     {{{{ env_var('SINGLESTORE_PORT', 3306) }}}}
+      user:     "{{{{ env_var('SINGLESTORE_USER') }}}}"
+      password: "{{{{ env_var('SINGLESTORE_PASSWORD') }}}}"
+      database: "{{{{ env_var('SINGLESTORE_DB') }}}}"
+      schema:   "{{{{ env_var('SINGLESTORE_SCHEMA', env_var('SINGLESTORE_DB')) }}}}"
+"""
+            with open(os.path.join(work_dir, 'profiles.yml'), 'w') as f:
+                f.write(profiles_text)
+
+            # prepare environment
+            env = os.environ.copy()
+            env.update({
+                "DBT_PROJECT_DIR":  work_dir,
+                "DBT_PROFILES_DIR": work_dir,
+                **conn_env,
+            })
+
+            # run dbt
+            subprocess.run(
+                [
+                    "dbt", "run",
+                    "--project-dir", work_dir,
+                    "--profiles-dir", work_dir,
+                    "--select", "game_by_day",
+                ],
+                check=True,
+                env=env,
+                cwd=work_dir,
+            )
+        finally:
+            # clean up temporary directory
+            shutil.rmtree(work_dir)
 
     # dynamic mapping of tasks
     conns = get_singlestore_conns()
     run_dbt.expand(conn_env=conns)
+
 
 
 # # export SINGLESTORE_HOST=10.49.18.95
