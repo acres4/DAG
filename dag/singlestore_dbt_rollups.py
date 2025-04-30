@@ -21,8 +21,8 @@ def run_dbt_for_env(conn_env: dict):
     # Prepare environment for dbt
     env = os.environ.copy()
     env.update({
-        "DBT_PROJECT_DIR":  "/opt/airflow/dags/dbt",
-        "DBT_PROFILES_DIR": "/opt/airflow/dags/dbt",
+        "DBT_PROJECT_DIR":  "/opt/airflow/dags/repo/dbt",
+        "DBT_PROFILES_DIR": "/opt/airflow/dags/repo/dbt",
         **conn_env,
     })
     # Execute dbt run for the game_by_day model
