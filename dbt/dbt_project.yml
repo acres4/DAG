@@ -5,16 +5,8 @@ config-version: 2                # Use the v2 YAML syntax for configs :contentRe
 # Must match the key under profiles.yml
 profile: "singlestore_dbt"       # Which profile dbt should load :contentReference[oaicite:1]{index=1}
 
-# Where dbt looks for your .sql model files
-source-paths: ["models"]         # Default in v2; change if you store models elsewhere :contentReference[oaicite:2]{index=2}
-
-# Where dbt writes compiled SQL and run artifacts
-target-path: "target"            # Default output directory :contentReference[oaicite:3]{index=3}
-clean-targets:
-  - "target"                     # Directories to remove on `dbt clean` :contentReference[oaicite:4]{index=4}
 
 # Default model configurations
 models:
   my_dbt_project:                # Must match the `name:` above :contentReference[oaicite:5]{index=5}
-    +materialized: table         # Use table materializations by default :contentReference[oaicite:6]{index=6}
-    # +schema: "{{ env_var('SINGLESTORE_SCHEMA') }}"  # (optional) override the target schema
+    schema: 'qa2_events'

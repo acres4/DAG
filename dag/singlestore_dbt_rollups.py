@@ -4,7 +4,8 @@
 # export SINGLESTORE_PASSWORD=Acres1234
 # export SINGLESTORE_DB=qa2_events
 # export SINGLESTORE_SCHEMA=qa2_events
-
+# export DBT_PROFILES_DIR=/opt/airflow/dags/repo/dbt
+# export DBT_PROJECT_DIR=/opt/airflow/dags/repo/dbt
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.decorators import task
