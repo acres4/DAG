@@ -18,7 +18,7 @@ with DAG(
     schedule_interval=None,  # run on demand or manually, adjust as needed
     catchup=False
 ) as dag:
-    
+     
     def run_dbt_task(conn_id: str):
         """Python callable to run the dbt model for a given connection."""
         # Import inside the function to ensure it runs in the task's context
@@ -75,7 +75,7 @@ with DAG(
     #     dag=dag
     # )
 
-
+run_dbt_task()
 # from airflow import DAG
 # from airflow.utils.dates import days_ago
 # from airflow.decorators import task
