@@ -101,7 +101,7 @@ with DAG(
                       type: singlestore
                       threads: 4
                       host:     "{{ env_var('SINGLESTORE_HOST') }}"
-                      port:     "{{ env_var('SINGLESTORE_PORT', 3306) }}"
+                      port:     {{ env_var('SINGLESTORE_PORT') | int }}
                       user:     "{{ env_var('SINGLESTORE_USER') }}"
                       password: "{{ env_var('SINGLESTORE_PASSWORD') }}"
                       database: "{{ env_var('SINGLESTORE_DB') }}"
