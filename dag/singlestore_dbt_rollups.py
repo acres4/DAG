@@ -32,12 +32,14 @@ with DAG(
         from airflow.models import Connection
 
         session = settings.Session()
-        conns = (
-            session.query(Connection)
-            .filter(Connection.conn_id.ilike("singlestore_%"))
-            .all()
-        )
-        session.close()
+        try:
+            conns = (
+                session.query(Connection)
+                .filter(Connection.conn_id.ilike("singlestore_%"))
+                .all()
+            )
+        finally:
+            session.close()
 
         results = []
         for conn in conns:
@@ -57,7 +59,6 @@ with DAG(
         Create a temp directory, generate dbt_project.yml and profiles.yml
         based on environment variables and run the 'game_by_day' model.
         """
-        # Create temporary working directory
         work_dir = tempfile.mkdtemp(prefix="dbt_")
         try:
             # Copy models folder
@@ -133,14 +134,14 @@ with DAG(
 
 
 
-# # export SINGLESTORE_HOST=10.49.18.95
-# # export SINGLESTORE_PORT=3306
-# # export SINGLESTORE_USER=root
-# # export SINGLESTORE_PASSWORD=Acres1234
-# # export SINGLESTORE_DB=qa2_events
-# # export SINGLESTORE_SCHEMA=qa2_events
-# # export DBT_PROFILES_DIR=/opt/airflow/dags/repo/dbt
-# # export DBT_PROJECT_DIR=/opt/airflow/dags/repo/dbt
+# export SINGLESTORE_HOST=10.49.18.95
+# export SINGLESTORE_PORT=3306
+# export SINGLESTORE_USER=root
+# export SINGLESTORE_PASSWORD=Acres1234
+# export SINGLESTORE_DB=qa2_events
+# export SINGLESTORE_SCHEMA=qa2_events
+# export DBT_PROFILES_DIR=/opt/airflow/dags/repo/dbt
+# export DBT_PROJECT_DIR=/opt/airflow/dags/repo/dbt
 # from airflow import DAG
 # from airflow.utils.dates import days_ago
 # from airflow.decorators import task
