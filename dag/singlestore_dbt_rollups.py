@@ -1,13 +1,23 @@
+"""
+DAG: singlestore_dbt_rollups
+Runs the 'game_by_day' dbt model for each SingleStore connection defined in Airflow.
+Compatible with Apache Airflow 2.10.5 and PythonVirtualenvOperator.
+"""
+
 from datetime import datetime
 import os
 import subprocess
 
-from airflow import DAG, settings
+from airflow import settings
 from airflow.models import Connection
 from airflow.operators.python import PythonVirtualenvOperator
+from airflow import DAG
 
-# Python callable to run the dbt model for a given connection
+
 def run_dbt_for_env(conn_env: dict):
+    """
+    Execute the 'game_by_day' dbt model for a given SingleStore connection.
+    """
     env = os.environ.copy()
     env.update({
         'DBT_PROJECT_DIR': '/opt/airflow/dags/dbt',
@@ -27,14 +37,13 @@ def run_dbt_for_env(conn_env: dict):
     subprocess.run(cmd, check=True, env=env, cwd=env['DBT_PROJECT_DIR'])
 
 # Fetch SingleStore connections at DAG parse time
-tmp_session = settings.Session()
+session = settings.Session()
 singlestore_conns = (
-    tmp_session
-    .query(Connection)
-    .filter(Connection.conn_id.ilike('singlestore_%'))
-    .all()
+    session.query(Connection)
+           .filter(Connection.conn_id.ilike('singlestore_%'))
+           .all()
 )
-tmp_session.close()
+session.close()
 
 # Default args for the DAG
 default_args = {
@@ -44,11 +53,11 @@ default_args = {
 }
 
 with DAG(
-    dag_id='dbt_singlestore_dag',
+    dag_id='singlestore_dbt_rollups',
     default_args=default_args,
     schedule_interval='0 2 * * *',  # daily at 02:00 UTC
     catchup=False,
-    tags=['dbt', 'singlestore'],
+    tags=['dbt', 'singlestore', 'rollups'],
 ) as dag:
 
     # Create one PythonVirtualenvOperator per connection
@@ -72,3 +81,35 @@ with DAG(
             system_site_packages=True,
             python_version='3.9',
         )
+
+# --- Simplified single-connection example ---
+# If you only need to run against 'singlestore_default', uncomment below:
+#
+# from airflow.hooks.base import BaseHook
+#
+# with DAG(
+#     dag_id='singlestore_default_dbt_rollup',
+#     default_args=default_args,
+#     schedule_interval='0 2 * * *',
+#     catchup=False,
+#     tags=['dbt', 'singlestore'],
+# ) as single_dag:
+#
+#     conn = BaseHook.get_connection('singlestore_default')
+#     PythonVirtualenvOperator(
+#         task_id='run_game_by_day_default',
+#         python_callable=run_dbt_for_env,
+#         op_kwargs={'conn_env': {
+#             'host': conn.host,
+#             'port': conn.port,
+#             'user': conn.login,
+#             'password': conn.password,
+#             'schema': conn.schema,
+#         }},
+#         requirements=[
+#             'dbt-core>=1.14.0',
+#             'dbt-singlestore',
+#         ],
+#         system_site_packages=True,
+#         python_version='3.9',
+#     )
