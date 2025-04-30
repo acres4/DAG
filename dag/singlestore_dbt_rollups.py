@@ -32,9 +32,11 @@ with DAG(
         from airflow.models import Connection
 
         session = settings.Session()
-        conns = session.query(Connection)
-                        .filter(Connection.conn_id.ilike("singlestore_%"))
-                        .all()
+        conns = (
+            session.query(Connection)
+            .filter(Connection.conn_id.ilike("singlestore_%"))
+            .all()
+        )
         session.close()
 
         results = []
