@@ -7,6 +7,7 @@ import tempfile
 import shutil
 import textwrap
 import logging
+import yaml
 
 # Configure logger for dbt output
 logger = logging.getLogger(__name__)
@@ -92,23 +93,27 @@ with DAG(
             with open(os.path.join(work_dir, 'dbt_project.yml'), 'w') as f:
                 f.write(project_yaml)
 
-            # Generate profiles.yml
-            profiles_yaml = textwrap.dedent("""
-                singlestore_dbt:
-                  target: dynamic
-                  outputs:
-                    dynamic:
-                      type: singlestore
-                      threads: 4
-                      host:     "{{ env_var('SINGLESTORE_HOST') }}"
-                      port:     {{ env_var('SINGLESTORE_PORT') | int }}
-                      user:     "{{ env_var('SINGLESTORE_USER') }}"
-                      password: "{{ env_var('SINGLESTORE_PASSWORD') }}"
-                      database: "{{ env_var('SINGLESTORE_DB') }}"
-                      schema:   "{{ env_var('SINGLESTORE_SCHEMA', env_var('SINGLESTORE_DB')) }}"
-            """)
+            # Generate profiles.yml using actual values
+            port_val = int(conn_env.get('SINGLESTORE_PORT', '3306'))
+            profiles_dict = {
+                'singlestore_dbt': {
+                    'target': 'dynamic',
+                    'outputs': {
+                        'dynamic': {
+                            'type': 'singlestore',
+                            'threads': 4,
+                            'host': conn_env.get('SINGLESTORE_HOST', ''),
+                            'port': port_val,
+                            'user': conn_env.get('SINGLESTORE_USER', ''),
+                            'password': conn_env.get('SINGLESTORE_PASSWORD', ''),
+                            'database': conn_env.get('SINGLESTORE_DB', ''),
+                            'schema': conn_env.get('SINGLESTORE_SCHEMA') or conn_env.get('SINGLESTORE_DB', ''),
+                        }
+                    }
+                }
+            }
             with open(os.path.join(work_dir, 'profiles.yml'), 'w') as f:
-                f.write(profiles_yaml)
+                yaml.safe_dump(profiles_dict, f, default_flow_style=False)
 
             # Prepare environment variables for dbt
             env = os.environ.copy()
@@ -118,7 +123,7 @@ with DAG(
                 **conn_env,
             })
 
-            # Build and run dbt command with target
+            # Build and run dbt command
             cmd = [
                 "dbt", "run",
                 "--project-dir", work_dir,
@@ -151,7 +156,6 @@ with DAG(
     # Dynamic task mapping
     connections = get_singlestore_conns()
     run_dbt.expand(conn_env=connections)
-
 
 
 # export SINGLESTORE_HOST=10.49.18.95
