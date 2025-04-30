@@ -68,8 +68,8 @@ with DAG(
         subprocess.run(
             [
                 "dbt", "run",
-                "--profiles-dir", "/opt/airflow/dags/dbt",
-                "--project-dir", "/opt/airflow/dags/dbt",
+                "--profiles-dir", "/opt/airflow/dags/repo/dbt",
+                "--project-dir", "/opt/airflow/dags/repo/dbt",
                 "--select", "game_by_day",
             ],
             check=True,
