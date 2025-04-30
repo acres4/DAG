@@ -1,3 +1,10 @@
+# export SINGLESTORE_HOST=10.49.18.95
+# export SINGLESTORE_PORT=3306
+# export SINGLESTORE_USER=root
+# export SINGLESTORE_PASSWORD=Acres1234
+# export SINGLESTORE_DB=qa2_events
+# export SINGLESTORE_SCHEMA=qa2_events
+
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.decorators import task
@@ -58,11 +65,15 @@ with DAG(
         Run `dbt run` under the given environment dict.
         Assumes the Airflow worker image already has:
           - dbt-core + dbt-singlestore installed
-          - your dbt project & profiles baked in under /opt/airflow/dags/dbt
         """
         # Merge SingleStore creds into the OS env
         env = os.environ.copy()
-        env.update(conn_env)
+        env.update({
+            "DBT_PROJECT_DIR":  "/opt/airflow/dags/repo/dbt",
+            "DBT_PROFILES_DIR": "/opt/airflow/dags/repo/dbt",
+            **conn_env,
+        })
+
 
         # Execute dbt in the same container as the Airflow worker
         subprocess.run(
