@@ -27,7 +27,7 @@ WITH source AS (
       END
     )                                 AS avg_bet_velocity
 
-  FROM {{ source('raw','session_data') }}
+  FROM {{ env_var('SINGLESTORE_DB') }}.session_data
 
   WHERE type = 'STUpdate'
     -- skip null floor locations, if any
