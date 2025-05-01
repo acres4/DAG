@@ -129,7 +129,6 @@ with DAG(
                 "--project-dir", work_dir,
                 "--profiles-dir", work_dir,
                 "--target", "dynamic",
-                "--select", "game_by_day",
             ]
             logger.info("Running dbt command: %s", " ".join(cmd))
             result = subprocess.run(
