@@ -16,7 +16,6 @@ WITH source AS (
         OR playerCardNumber = '' THEN 'uncarded'
       ELSE 'carded'
     END                                       AS player_type,
-    -- explode metrics so we can aggregate in CTEs
     updateCashableWager
       + updateRestrictedWager
       + updateOORVCashableWager
@@ -30,97 +29,101 @@ WITH source AS (
     maxCashableRisked                        AS budget,
     sessionUuid,
     assetNumber,
-    devInfoGameThemes,
-    playerCardNumber
-  FROM {{ env_var('SINGLESTORE_DB') }}.session_data
+    devInfoGameTheme,
+    playerCardNumber,
+    duration
+  FROM mc_sessions
   WHERE type = 'STUpdate'
     AND floorLocation IS NOT NULL
-
-  {% if is_incremental() %}
-    AND FROM_UNIXTIME(eventTime/1000)
-        >= (SELECT MAX(hour_bucket) FROM {{ this }})
-  {% endif %}
+    AND eventTime >= 1749522949000
 ),
 
--- 2) Build the carded / uncarded aggregates
 CardedUncarded AS (
   SELECT
     hour_bucket,
     floor_location,
     player_type,
+
     SUM(coin_in)         AS total_coin_in,
     SUM(cashable_coin_in)AS total_cashable_coin_in,
     SUM(coin_out)        AS total_coin_out,
     SUM(jackpot)         AS total_jackpot,
-
-    -- real net win
-    SUM(coin_in)
-      - SUM(coin_out)
-      - SUM(jackpot)     AS total_net_win,
-
+    SUM(coin_in) - SUM(coin_out) - SUM(jackpot)  AS total_net_win,
     MAX(budget)          AS max_player_budget,
-
     AVG(coin_in)         AS total_avg_bet_size,
     COUNT(*)             AS total_spins,
-    COUNT(DISTINCT sessionUuid)            AS total_session_counts,
-    COUNT(DISTINCT assetNumber)            AS total_distinct_asset_counts,
-    COUNT(DISTINCT devInfoGameThemes)      AS total_distinct_game_themes,
-    COUNT(DISTINCT playerCardNumber)       AS total_distinct_player_card_numbers
-
+    COUNT(DISTINCT sessionUuid)       AS total_session_counts,
+    COUNT(DISTINCT assetNumber)       AS total_distinct_asset_counts,
+    COUNT(DISTINCT devInfoGameTheme)  AS total_distinct_game_themes,
+    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers,
+    SUM(duration)        AS total_duration,
+    AVG(duration)        AS avg_duration
   FROM source
   GROUP BY hour_bucket, floor_location, player_type
 ),
 
--- 3) Compute the *true* distinct counts for the “All” bucket
 DistinctTotals AS (
   SELECT
     hour_bucket,
     floor_location,
-    COUNT(DISTINCT sessionUuid)            AS total_session_counts,
-    COUNT(DISTINCT assetNumber)            AS total_distinct_asset_counts,
-    COUNT(DISTINCT devInfoGameThemes)      AS total_distinct_game_themes,
-    COUNT(DISTINCT playerCardNumber)       AS total_distinct_player_card_numbers
+    COUNT(DISTINCT sessionUuid)       AS total_session_counts,
+    COUNT(DISTINCT assetNumber)       AS total_distinct_asset_counts,
+    COUNT(DISTINCT devInfoGameTheme)  AS total_distinct_game_themes,
+    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers,
+    SUM(duration)                     AS total_duration
   FROM source
   GROUP BY hour_bucket, floor_location
-)
+), Final as (
 
--- 4) Emit carded + uncarded
+-- 1) Carded + Uncarded
 SELECT * FROM CardedUncarded
 
 UNION ALL
 
--- 5) Emit the “All” row by re-aggregating C.U. metrics and plugging in DistinctTotals
+-- 2) The “All” bucket
 SELECT
-  cu.hour_bucket,
-  cu.floor_location,
-  'All'                                     AS player_type,
+  dt.hour_bucket,
+  dt.floor_location,
+  'All'                                   AS player_type,
 
-  -- sum the numeric metrics
+  -- Numeric metrics summed
   SUM(cu.total_coin_in)          AS total_coin_in,
   SUM(cu.total_cashable_coin_in) AS total_cashable_coin_in,
   SUM(cu.total_coin_out)         AS total_coin_out,
   SUM(cu.total_jackpot)          AS total_jackpot,
   SUM(cu.total_net_win)          AS total_net_win,
 
-  -- budget: take the max across both
+  -- Max budget across both types
   MAX(cu.max_player_budget)      AS max_player_budget,
 
-  -- weighted avg bet size (total_coin_in / total_spins)
-  SUM(cu.total_coin_in) 
-    / NULLIF(SUM(cu.total_spins), 0)       AS total_avg_bet_size,
+  -- Weighted average bet size
+  SUM(cu.total_coin_in)
+    / NULLIF(SUM(cu.total_spins),0)     AS total_avg_bet_size,
 
-  -- spins
   SUM(cu.total_spins)            AS total_spins,
 
-  -- true distinct counts from DistinctTotals
+  -- True distinct counts from DistinctTotals
+  dt.total_session_counts,
+  dt.total_distinct_asset_counts,
+  dt.total_distinct_game_themes,
+  dt.total_distinct_player_card_numbers,
+
+  -- Duration metrics
+  SUM(cu.total_duration)         AS total_duration,
+  SUM(cu.total_duration)
+    / NULLIF(SUM(cu.total_spins),0)     AS avg_duration
+
+FROM CardedUncarded cu
+JOIN DistinctTotals   dt
+  USING (hour_bucket, floor_location)
+
+GROUP BY
+  dt.hour_bucket,
+  dt.floor_location,
   dt.total_session_counts,
   dt.total_distinct_asset_counts,
   dt.total_distinct_game_themes,
   dt.total_distinct_player_card_numbers
-
-FROM CardedUncarded cu
-JOIN DistinctTotals dt
-  USING (hour_bucket, floor_location)
-
-GROUP BY cu.hour_bucket, cu.floor_location
+) select * from Final order by hour_bucket
 ;
+
