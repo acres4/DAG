@@ -48,8 +48,10 @@ WITH source AS (
 
     sessionUuid,
     assetNumber    AS raw_asset,
-    devInfoGameThemes AS raw_theme,
-    playerCardNumber
+    devInfoGameTheme AS raw_theme,
+    playerCardNumber,
+    duration,
+    
 
   FROM {{ env_var('SINGLESTORE_DB') }}.session_data
 
@@ -89,7 +91,9 @@ CardedUncarded AS (
     COUNT(DISTINCT sessionUuid)       AS total_session_counts,
     COUNT(DISTINCT raw_asset)         AS total_distinct_asset_counts,
     COUNT(DISTINCT raw_theme)         AS total_distinct_game_themes,
-    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers
+    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers,
+    SUM(duration)               AS total_duration,
+    AVG(duration) as avg_duration
 
   FROM source
   GROUP BY
@@ -112,7 +116,9 @@ DistinctTotals AS (
     COUNT(DISTINCT sessionUuid)       AS total_session_counts,
     COUNT(DISTINCT raw_asset)         AS total_distinct_asset_counts,
     COUNT(DISTINCT raw_theme)         AS total_distinct_game_themes,
-    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers
+    COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers,
+    SUM(duration)               AS total_duration,
+    AVG(duration) as avg_duration
   FROM source
   GROUP BY
     hour_bucket,
@@ -152,6 +158,9 @@ SELECT
 
   -- spins
   SUM(cu.total_spins)            AS total_spins,
+
+  SUM(cu.total_duration) as total_duration,
+  SUM(cu.total_duration)/NULLIF(SUM(cu.total_spins), 0) as avg_duration,
 
   -- true distincts from DistinctTotals
   dt.total_session_counts,
