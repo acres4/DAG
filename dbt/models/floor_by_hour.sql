@@ -5,8 +5,7 @@
 
 # NOTE: 
 # TODO: for the floor location, check with patrick to see if we want first 2 or first 4 digitzs
-# -- avg bet velocity is ignored fo rnow
-# Occupancy %, Active State is ignored in first version
+# -- avg bet velocity,Occupancy %, Active State is ignored in first version
 
 WITH source AS (
   SELECT

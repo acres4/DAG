@@ -4,6 +4,10 @@
 ) }}
 
 -- Note: 
+-- It was noted in the original spec to add Max Player Budget by Game
+-- Also avg bet velocity as time between plays - Skipped this version
+--
+
 
 ----------------------------------------------------------------------------------
 -- 1) Pulling out data need
