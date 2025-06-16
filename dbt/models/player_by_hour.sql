@@ -3,9 +3,12 @@
     unique_key=['hour_bucket', 'player_card_number']
 ) }}
 
-------------------------------------------------------------------------
--- 1) Read raw events once, compute base metrics and capture raw_theme
-------------------------------------------------------------------------
+-- Note: 
+
+----------------------------------------------------------------------------------
+-- 1) Pulling out data need
+-----------------------------------------------------------------------------------
+
 WITH source AS (
   SELECT
     DATE_FORMAT(FROM_UNIXTIME(eventTime/1000), '%Y-%m-%d %H:00:00')
@@ -25,7 +28,7 @@ WITH source AS (
     duration,
     sessionUuid,
     assetNumber                     AS raw_asset,
-    devInfoGameThemes               AS raw_theme
+    devInfoGameTheme               AS raw_theme
 
   FROM {{ env_var('SINGLESTORE_DB') }}.session_data
 
@@ -59,34 +62,18 @@ player_agg AS (
     COUNT(DISTINCT raw_asset)      AS total_distinct_asset_counts,
 
     SUM(duration)                  AS total_duration,
-    AVG(duration)                  AS avg_duration
+    AVG(duration)                  AS avg_duration,
+    COUNT(DISTINCT raw_theme)                                  AS distinct_game_themes,
+    GROUP_CONCAT(DISTINCT raw_theme ORDER BY raw_theme SEPARATOR ', ')
+      AS game_theme_list
 
   FROM source
   GROUP BY hour_bucket, player_card_number
 ),
 
-----------------------------------------------------------------------------------------------------
--- 3) Simple theme summary per player/hour: count distinct + comma-separated list of themes
-----------------------------------------------------------------------------------------------------
-theme_summary AS (
-  SELECT
-    hour_bucket,
-    player_card_number,
-    COUNT(DISTINCT raw_theme)                                  AS distinct_game_themes,
-    GROUP_CONCAT(DISTINCT raw_theme ORDER BY raw_theme SEPARATOR ', ')
-      AS game_theme_list
-  FROM source
-  GROUP BY hour_bucket, player_card_number
-)
-
 ---------------------------------------------------------------------------------------------------
 -- 4) Final output: join core KPIs with theme summary
 ---------------------------------------------------------------------------------------------------
 SELECT
-  pa.*,
-  ts.distinct_game_themes,
-  ts.game_theme_list
-
-FROM player_agg pa
-LEFT JOIN theme_summary ts
-  USING (hour_bucket, player_card_number);
+  pa.*
+FROM player_agg pa;

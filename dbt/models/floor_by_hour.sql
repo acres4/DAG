@@ -5,8 +5,9 @@
 
 # NOTE: 
 # TODO: for the floor location, check with patrick to see if we want first 2 or first 4 digitzs
+# -- avg bet velocity is ignored fo rnow
+# Occupancy %, Active State is ignored in first version
 
--- 1) Grab raw events once, tag player_type, and filter incrementally
 WITH source AS (
   SELECT
     DATE_FORMAT(FROM_UNIXTIME(eventTime/1000), '%Y-%m-%d %H:00:00') AS hour_bucket,
@@ -35,7 +36,12 @@ WITH source AS (
   FROM mc_sessions
   WHERE type = 'STUpdate'
     AND floorLocation IS NOT NULL
-    AND eventTime >= 1749522949000
+    {% if is_incremental() %}
+    -- only process new hours
+    AND FROM_UNIXTIME(eventTime/1000) 
+        >= (SELECT MAX(hour_bucket) FROM {{ this }})
+  {% endif %}
+
 ),
 
 CardedUncarded AS (

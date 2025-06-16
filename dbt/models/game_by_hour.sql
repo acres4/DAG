@@ -12,9 +12,12 @@
 
 -- Note: 
 -- TODO: this is assuming that we want to do a roll up on assetNumber. 
--- I assume so instead of other fields
--- Can also include SasSerialNumber 
-
+-- I assume so instead of other fields like game theme or other. 
+-- I would much rather have it on assetnumber and then we can aggregate on theme.
+-- Can also include SasSerialNumber?
+-- Need to double check with Patrick
+-- average bet velocity is excluded until verification that time between events
+-- also data format here is wide instead of long, as in original spec
 
 -- 1) Pull raw events once, tag player_type, and support incremental loads
 WITH source AS (

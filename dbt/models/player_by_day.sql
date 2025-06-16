@@ -2,6 +2,12 @@
     materialized='incremental',
     unique_key=['day_bucket', 'playerCardNumber']
 ) }}
+-- Leaving a note: 
+-- TODO: It would be better to refactor these daily codes to so that it 
+-- would pull whatever it needed from the hourly metrics 
+-- and whatever else it would aggregate from the main table. 
+-- The current version just uses the current table and aggregates
+-- Leaving for now, with intention getting something working quickly and can fine tune later. 
 
 WITH source AS (
 
