@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',
-    unique_key=['hour_bucket','floor_location','player_type']
+    unique_key=['day_bucket','floor_location','player_type']
 ) }}
 
 # NOTE: 
@@ -9,7 +9,8 @@
 
 WITH source AS (
   SELECT
-    DATE_FORMAT(FROM_UNIXTIME(eventTime/1000), '%Y-%m-%d %H:00:00') AS hour_bucket,
+    DATE_FORMAT(FROM_UNIXTIME(eventTime/1000), '%Y-%m-%d 00:00:00')
+      AS day_bucket,
     floorLocation                             AS floor_location,
     CASE 
       WHEN playerCardNumber IS NULL
@@ -36,16 +37,15 @@ WITH source AS (
   WHERE type = 'STUpdate'
     AND floorLocation IS NOT NULL
     {% if is_incremental() %}
-    -- only process new hours
-    AND FROM_UNIXTIME(eventTime/1000) 
-        >= (SELECT MAX(hour_bucket) FROM {{ this }})
+    AND DATE(FROM_UNIXTIME(eventTime/1000)) 
+        >= (SELECT MAX(day_bucket) FROM {{ this }})
   {% endif %}
 
 ),
 
 CardedUncarded AS (
   SELECT
-    hour_bucket,
+    day_bucket,
     floor_location,
     player_type,
 
@@ -64,12 +64,12 @@ CardedUncarded AS (
     SUM(duration)        AS total_duration,
     AVG(duration)        AS avg_duration
   FROM source
-  GROUP BY hour_bucket, floor_location, player_type
+  GROUP BY day_bucket, floor_location, player_type
 ),
 
 DistinctTotals AS (
   SELECT
-    hour_bucket,
+    day_bucket,
     floor_location,
     COUNT(DISTINCT sessionUuid)       AS total_session_counts,
     COUNT(DISTINCT assetNumber)       AS total_distinct_asset_counts,
@@ -77,7 +77,7 @@ DistinctTotals AS (
     COUNT(DISTINCT playerCardNumber)  AS total_distinct_player_card_numbers,
     SUM(duration)                     AS total_duration
   FROM source
-  GROUP BY hour_bucket, floor_location
+  GROUP BY day_bucket, floor_location
 ), Final as (
 
 -- 1) Carded + Uncarded
@@ -87,7 +87,7 @@ UNION ALL
 
 -- 2) The “All” bucket
 SELECT
-  dt.hour_bucket,
+  dt.day_bucket,
   dt.floor_location,
   'All'                                   AS player_type,
 
@@ -120,15 +120,15 @@ SELECT
 
 FROM CardedUncarded cu
 JOIN DistinctTotals   dt
-  USING (hour_bucket, floor_location)
+  USING (day_bucket, floor_location)
 
 GROUP BY
-  dt.hour_bucket,
+  dt.day_bucket,
   dt.floor_location,
   dt.total_session_counts,
   dt.total_distinct_asset_counts,
   dt.total_distinct_game_themes,
   dt.total_distinct_player_card_numbers
-) select * from Final order by hour_bucket
+) select * from Final order by day_bucket
 ;
 
